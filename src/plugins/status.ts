@@ -403,7 +403,21 @@ export function buildPluginCompatibilityNotices(params?: {
   logger?: PluginLogger;
   report?: PluginStatusReport;
 }): PluginCompatibilityNotice[] {
-  return buildAllPluginInspectReports(params).flatMap((inspect) => inspect.compatibility);
+  const report =
+    params?.report ??
+    buildPluginSnapshotReport({
+      config: params?.config,
+      logger: params?.logger,
+      workspaceDir: params?.workspaceDir,
+      env: params?.env,
+    });
+  return buildAllPluginInspectReports({
+    config: params?.config,
+    workspaceDir: params?.workspaceDir,
+    env: params?.env,
+    logger: params?.logger,
+    report,
+  }).flatMap((inspect) => inspect.compatibility);
 }
 
 export function formatPluginCompatibilityNotice(notice: PluginCompatibilityNotice): string {

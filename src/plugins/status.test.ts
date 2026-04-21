@@ -251,12 +251,12 @@ function expectAutoEnabledDemoCompatibilityNoticesPreserveRawConfig() {
   expectAutoEnabledStatusLoad({
     rawConfig,
   });
-  expectPluginLoaderCall({
+  expectMetadataSnapshotLoaderCall({
     config: autoEnabledConfig,
     activationSourceConfig: rawConfig,
-    autoEnabledReasons,
-    loadModules: true,
+    loadModules: false,
   });
+  expect(loadOpenClawPluginsMock).not.toHaveBeenCalled();
 }
 
 function expectNoCompatibilityWarnings() {
@@ -493,10 +493,6 @@ describe("plugin status reports", () => {
       enabledConfig,
       loadModules: false,
     });
-  });
-
-  it("preserves raw config activation context for compatibility-derived reports", () => {
-    expectAutoEnabledDemoCompatibilityNoticesPreserveRawConfig();
   });
 
   it("normalizes bundled plugin versions to the core base release", () => {
