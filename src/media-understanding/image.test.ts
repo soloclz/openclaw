@@ -17,6 +17,7 @@ const hoisted = vi.hoisted(() => ({
   setRuntimeApiKeyMock: vi.fn(),
   discoverModelsMock: vi.fn(),
   fetchMock: vi.fn(),
+  normalizeProviderModelIdWithRuntimeMock: vi.fn(),
 }));
 const {
   completeMock,
@@ -27,6 +28,7 @@ const {
   setRuntimeApiKeyMock,
   discoverModelsMock,
   fetchMock,
+  normalizeProviderModelIdWithRuntimeMock,
 } = hoisted;
 
 vi.mock("@mariozechner/pi-ai", async () => {
@@ -55,6 +57,10 @@ vi.mock("../agents/pi-model-discovery-runtime.js", () => ({
     setRuntimeApiKey: setRuntimeApiKeyMock,
   }),
   discoverModels: discoverModelsMock,
+}));
+
+vi.mock("../agents/provider-model-normalization.runtime.js", () => ({
+  normalizeProviderModelIdWithRuntime: normalizeProviderModelIdWithRuntimeMock,
 }));
 
 const { describeImageWithModel } = await import("./image.js");
@@ -170,6 +176,54 @@ describe("describeImageWithModel", () => {
     });
     expect(completeMock).toHaveBeenCalledOnce();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps explicit image model refs even if provider hooks would rewrite the model id", async () => {
+    const findMock = vi.fn((provider: string, modelId: string) => {
+      expect(provider).toBe("ollama");
+      expect(modelId).toBe("gemma4:31b-cloud");
+      return {
+        provider: "ollama",
+        id: "gemma4:31b-cloud",
+        input: ["text", "image"],
+        baseUrl: "http://127.0.0.1:11434",
+      };
+    });
+    discoverModelsMock.mockReturnValue({ find: findMock });
+    normalizeProviderModelIdWithRuntimeMock.mockImplementation(({ provider, context }) => {
+      if (provider === "ollama" && (context as { modelId?: string }).modelId === "gemma4:31b-cloud") {
+        return "anthropic/gemma4:31b-cloud";
+      }
+      return undefined;
+    });
+    completeMock.mockResolvedValue({
+      role: "assistant",
+      api: "ollama",
+      provider: "ollama",
+      model: "gemma4:31b-cloud",
+      stopReason: "stop",
+      timestamp: Date.now(),
+      content: [{ type: "text", text: "ollama ok" }],
+    });
+
+    const result = await describeImageWithModel({
+      cfg: {},
+      agentDir: "/tmp/openclaw-agent",
+      provider: "ollama",
+      model: "gemma4:31b-cloud",
+      buffer: Buffer.from("png-bytes"),
+      fileName: "image.png",
+      mime: "image/png",
+      prompt: "Describe the image.",
+      timeoutMs: 1000,
+    });
+
+    expect(result).toEqual({
+      text: "ollama ok",
+      model: "gemma4:31b-cloud",
+    });
+    expect(findMock).toHaveBeenCalledWith("ollama", "gemma4:31b-cloud");
+    expect(normalizeProviderModelIdWithRuntimeMock).not.toHaveBeenCalled();
   });
 
   it("passes image prompt as system instructions for codex image requests", async () => {

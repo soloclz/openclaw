@@ -23,7 +23,14 @@ const authSourceCheckMock = vi.hoisted(() => ({
   hasAnyAuthProfileStoreSource: vi.fn(() => true),
 }));
 
+const normalizeProviderModelIdWithRuntimeMock = vi.hoisted(() => vi.fn());
+
 vi.mock("./auth-profiles/source-check.js", () => authSourceCheckMock);
+
+vi.mock("./provider-model-normalization.runtime.js", () => ({
+  normalizeProviderModelIdWithRuntime: (params: unknown) =>
+    normalizeProviderModelIdWithRuntimeMock(params),
+}));
 
 const authRuntimeMock = vi.hoisted(() => {
   const stores = new Map<string, AuthProfileStore>();
@@ -1659,6 +1666,10 @@ describe("runWithModelFallback", () => {
 });
 
 describe("runWithImageModelFallback", () => {
+  afterEach(() => {
+    normalizeProviderModelIdWithRuntimeMock.mockReset();
+  });
+
   it("keeps explicit image fallbacks reachable when models allowlist is present", async () => {
     const cfg = makeCfg({
       agents: {
@@ -1688,5 +1699,36 @@ describe("runWithImageModelFallback", () => {
       ["openai", "gpt-image-1"],
       ["google", "gemini-2.5-flash-image-preview"],
     ]);
+  });
+
+  it("preserves explicit image model refs even if plugin normalization would rewrite them", async () => {
+    normalizeProviderModelIdWithRuntimeMock.mockImplementation(({ provider, context }) => {
+      if (
+        provider === "ollama" &&
+        (context as { modelId?: string }).modelId === "gemma4:31b-cloud"
+      ) {
+        return "anthropic/gemma4:31b-cloud";
+      }
+      return undefined;
+    });
+
+    const cfg = makeCfg({
+      agents: {
+        defaults: {
+          imageModel: {
+            primary: "ollama/gemma4:31b-cloud",
+          },
+        },
+      },
+    });
+    const run = vi.fn().mockResolvedValue("ok");
+
+    const result = await runWithImageModelFallback({
+      cfg,
+      run,
+    });
+
+    expect(result.result).toBe("ok");
+    expect(run).toHaveBeenCalledWith("ollama", "gemma4:31b-cloud");
   });
 });

@@ -344,6 +344,7 @@ function resolveImageFallbackCandidates(params: {
       raw,
       defaultProvider: params.defaultProvider,
       aliasIndex,
+      allowPluginNormalization: false,
     });
     if (!resolved) {
       return;
@@ -386,6 +387,7 @@ function resolveImageFallbackDefaultProvider(cfg: OpenClawConfig | undefined): s
       raw: configuredPrimary,
       defaultProvider: DEFAULT_PROVIDER,
       aliasIndex,
+      allowPluginNormalization: false,
     });
     if (resolved?.ref.provider) {
       return resolved.ref.provider;

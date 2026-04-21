@@ -107,7 +107,9 @@ async function resolveImageRuntime(params: {
   const { discoverAuthStorage, discoverModels } = await loadPiModelDiscoveryRuntime();
   const authStorage = discoverAuthStorage(params.agentDir);
   const modelRegistry = discoverModels(authStorage, params.agentDir);
-  const resolvedRef = normalizeModelRef(params.provider, params.model);
+  const resolvedRef = normalizeModelRef(params.provider, params.model, {
+    allowPluginNormalization: false,
+  });
   const model = modelRegistry.find(resolvedRef.provider, resolvedRef.model) as Model<Api> | null;
   if (!model) {
     throw new Error(`Unknown model: ${resolvedRef.provider}/${resolvedRef.model}`);
